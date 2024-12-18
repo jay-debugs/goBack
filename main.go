@@ -2,14 +2,13 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-
+	"github.com/gofiber/fiber/v2"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 type Coil struct {
@@ -64,23 +63,34 @@ func main() {
 	createCoilTable(db)
 	createWireTable(db)
 	createOrdersTable(db)
+	//apis
 
-	
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("GET /coil")
-		w.Header().Set("Content-Type", "application/json")
-		response := map[string]string{"message": "Welcome to the Coil API"}
-		jsonResponse, err := json.Marshal(response)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Write(jsonResponse)
-	})
+	app := fiber.New()
 
+	app.Use(cors.New(cors.Config{
+	AllowOrigins: "*",
+}))
 
+app.Post("/coils", func(c *fiber.Ctx) error {
+    coil := new(Coil)
+    err := c.BodyParser(coil)
+    if err != nil {
+        return c.Status(400).SendString("Bad Request")
+    }
+guery := `INSERT INTO coil (orderPrice, sets, coilName, weight, wireReq, wireGauge) VALUES ($1, $2, $3, $4, $5, $6)`
 
-	http.ListenAndServe(":3000", nil)
+	_, err = db.Exec(guery, coil.OrderPrice, coil.Sets, coil.CoilName, coil.Weight, coil.WireReq, coil.WireGauge)
+	if err != nil {
+		return c.Status(500).SendString("Internal Server Error")
+	}
+
+	// Additional logic to handle the parsed coil data can be added here
+	return c.JSON(coil) // Placeholder for successful handling
+
+})
+
+	log.Fatal(app.Listen(":3000"))
+
 }
 
 func createCoilTable(db *sql.DB) {
@@ -135,14 +145,8 @@ func createOrdersTable(db *sql.DB) {
 	}
 }
 
-func displayCoils (db *sql.DB) {
-	// Display all coils
-	Query:= `SELECT * FROM coil`
 
-	rows , err := db.Query(Query)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Coils:",rows)
-	defer rows.Close()
-}
+
+
+
+
