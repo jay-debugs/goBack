@@ -2,7 +2,7 @@ package main
 
 import (
 	"database/sql"
-	// "encoding/json"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -65,17 +65,22 @@ func main() {
 	createWireTable(db)
 	createOrdersTable(db)
 
-	http.ListenAndServe(":8080", nil)
-
-	http.HandleFunc("/coil", func(w http.ResponseWriter, r *http.Request) {
+	
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("GET /coil")
 		w.Header().Set("Content-Type", "application/json")
-		query := `SELECT * FROM coil`
-		rows, err := db.Query(query)
+		response := map[string]string{"message": "Welcome to the Coil API"}
+		jsonResponse, err := json.Marshal(response)
 		if err != nil {
-			log.Fatal(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
-		fmt.Println(rows)
+		w.Write(jsonResponse)
 	})
+
+
+
+	http.ListenAndServe(":3000", nil)
 }
 
 func createCoilTable(db *sql.DB) {
@@ -100,11 +105,10 @@ func createCoilTable(db *sql.DB) {
 func createWireTable(db *sql.DB) {
 	query := `CREATE TABLE IF NOT EXISTS wire (
         id SERIAL PRIMARY KEY,
-        sets INT NOT NULL,
         weight FLOAT NOT NULL,
         wireReq FLOAT NOT NULL,
         wireGauge FLOAT NOT NULL,
-        delivered BOOLEAN,
+        used BOOLEAN DEFAULT FALSE,
         deliveredOn TIMESTAMP
     )`
 
@@ -117,6 +121,7 @@ func createWireTable(db *sql.DB) {
 func createOrdersTable(db *sql.DB) {
 	query := `CREATE TABLE IF NOT EXISTS orders (
         id SERIAL PRIMARY KEY,
+        coilName VARCHAR NOT NULL,
         sets INT NOT NULL,
         weight FLOAT NOT NULL,
         wireReq FLOAT NOT NULL,
@@ -128,4 +133,16 @@ func createOrdersTable(db *sql.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func displayCoils (db *sql.DB) {
+	// Display all coils
+	Query:= `SELECT * FROM coil`
+
+	rows , err := db.Query(Query)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Coils:",rows)
+	defer rows.Close()
 }
